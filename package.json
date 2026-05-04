@@ -1,6 +1,6 @@
 {
   "name": "@saszorg/task-manager-cli",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Interactive Kanban-style task manager for the terminal.",
   "main": "index.js",
   "bin": {

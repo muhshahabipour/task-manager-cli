@@ -9,23 +9,6 @@ Interactive Kanban-style task manager for terminal users.
 - Add, edit, delete, move, and reorder tasks
 - PostgreSQL-backed persistence
 
-## Installation
-
-```bash
-npm install
-```
-
-## GitHub Setup
-
-```bash
-git init
-git add .
-git commit -m "feat: initial release"
-git branch -M main
-git remote add origin <your-github-repo-url>
-git push -u origin main
-```
-
 ## Configuration
 
 Use one of these approaches:
@@ -39,10 +22,11 @@ Example:
 export DATABASE_URL="postgres://admin:admin@localhost:5432/tasks_db"
 ```
 
-## Run
+## Install
 
 ```bash
-npm start
+npm install -g @saszorg/task-manager-cli
+task-manager-cli
 ```
 
 ## CLI
@@ -50,13 +34,6 @@ npm start
 ```bash
 task-manager-cli --help
 task-manager-cli --version
-```
-
-## Global Install (Published Package)
-
-```bash
-npm install -g @saszorg/task-manager-cli
-task-manager-cli
 ```
 
 ## Controls
