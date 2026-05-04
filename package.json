@@ -1,0 +1,42 @@
+{
+  "name": "@saszorg/task-manager-cli",
+  "version": "1.1.0",
+  "description": "Interactive Kanban-style task manager for the terminal.",
+  "main": "index.js",
+  "bin": {
+    "task-manager-cli": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "check": "node --check index.js && node --check db.js",
+    "test": "npm run check",
+    "prepublishOnly": "npm run check"
+  },
+  "keywords": [
+    "cli",
+    "kanban",
+    "task-manager",
+    "terminal",
+    "tui"
+  ],
+  "author": "Mohammad",
+  "license": "ISC",
+  "type": "commonjs",
+  "files": [
+    "index.js",
+    "db.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "chalk": "^5.6.2",
+    "pg": "^8.20.0",
+    "uuid": "^14.0.0"
+  }
+}
