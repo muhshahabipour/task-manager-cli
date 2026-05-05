@@ -100,6 +100,72 @@ const screen = blessed.screen({
 });
 screen.program.enableMouse();
 
+const createModal = ({ label, width = "50%", height = 10, borderColor }) =>
+  blessed.box({
+    parent: screen,
+    label,
+    tags: true,
+    border: "line",
+    width,
+    height,
+    top: "center",
+    left: "center",
+    keys: true,
+    mouse: true,
+    style: {
+      fg: "default",
+      bg: "default",
+      border: { fg: borderColor },
+    },
+  });
+
+const createModalButton = ({
+  parent,
+  top,
+  left,
+  width,
+  content,
+  borderColor,
+}) => {
+  const button = blessed.box({
+    parent,
+    mouse: true,
+    clickable: true,
+    keyable: true,
+    top,
+    left,
+    width,
+    height: 3,
+    align: "center",
+    valign: "middle",
+    content,
+    border: "line",
+    style: {
+      fg: "default",
+      bg: "default",
+      border: { fg: borderColor },
+      focus: {
+        fg: "default",
+        bg: "default",
+        border: { fg: borderColor },
+        inverse: true,
+      },
+    },
+  });
+
+  button.on("keypress", (ch, key) => {
+    if (key.name === "enter" || key.name === "space") {
+      button.emit("press");
+    }
+  });
+
+  button.on("click", () => {
+    button.emit("press");
+  });
+
+  return button;
+};
+
 const createColumn = (label, left) =>
   blessed.box({
     label,
@@ -111,7 +177,7 @@ const createColumn = (label, left) =>
     border: "line",
     style: {
       border: { fg: "gray" },
-      fg: "white",
+      fg: "default",
     },
   });
 
@@ -124,7 +190,7 @@ const header = blessed.box({
   align: "center",
   valign: "middle",
   content: "{bold}{cyan-fg}Task Manager{/cyan-fg}{/bold} {gray-fg}• Kanban CLI{/gray-fg}",
-  style: { fg: "white" },
+  style: { fg: "default" },
 });
 
 const footer = blessed.box({
@@ -156,23 +222,8 @@ const toast = blessed.message({
   valign: "middle",
   style: {
     border: { fg: "cyan" },
-    fg: "white",
-  },
-});
-
-const confirmBox = blessed.question({
-  parent: screen,
-  border: "line",
-  tags: true,
-  hidden: true,
-  width: "55%",
-  height: "shrink",
-  top: "center",
-  left: "center",
-  label: " Confirm Delete ",
-  style: {
-    border: { fg: "red" },
-    fg: "white",
+    fg: "default",
+    bg: "default",
   },
 });
 
@@ -185,10 +236,13 @@ screen.append(footer);
 let tasks = [];
 let selectedIndex = 0;
 let currentColumn = "todo";
+let activeModal = null;
+let closeActiveModal = null;
 
 // ===== helpers =====
 const getColumnTasks = () =>
   tasks.filter((t) => t.status === currentColumn);
+const isModalOpen = () => activeModal !== null;
 const showToast = (text, type = "info", duration = 1.6) => {
   screen.append(toast);
   toast.style.border.fg =
@@ -196,6 +250,190 @@ const showToast = (text, type = "info", duration = 1.6) => {
   toast.display(text, duration, () => {});
 };
 const trimValue = (value) => (typeof value === "string" ? value.trim() : "");
+
+const openTextModal = ({ label, promptText, initialValue = "", accent, onSubmit }) => {
+  if (isModalOpen()) return;
+
+  const modal = createModal({ label, borderColor: accent, height: 11 });
+  const promptLabel = blessed.box({
+    parent: modal,
+    top: 1,
+    left: 2,
+    right: 2,
+    height: 1,
+    content: promptText,
+    style: { fg: "default", bg: "default" },
+  });
+
+  const inputFrame = blessed.box({
+    parent: modal,
+    top: 3,
+    left: 2,
+    right: 2,
+    height: 3,
+    border: "line",
+    style: {
+      fg: "default",
+      bg: "default",
+      border: { fg: "gray" },
+      focus: {
+        border: { fg: accent },
+      },
+    },
+  });
+
+  const input = blessed.textbox({
+    parent: inputFrame,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    inputOnFocus: false,
+    keys: true,
+    mouse: true,
+    style: {
+      fg: "default",
+      bg: "default",
+    },
+  });
+
+  const submitButton = createModalButton({
+    parent: modal,
+    top: 6,
+    left: 2,
+    width: 10,
+    content: " Save ",
+    borderColor: accent,
+  });
+  const cancelButton = createModalButton({
+    parent: modal,
+    top: 6,
+    left: 14,
+    width: 12,
+    content: " Cancel ",
+    borderColor: "gray",
+  });
+
+  input.setValue(initialValue);
+  activeModal = modal;
+  closeActiveModal = null;
+  screen.saveFocus();
+
+  const closeModal = () => {
+    if (!activeModal || activeModal !== modal) return;
+    activeModal = null;
+    closeActiveModal = null;
+    modal.destroy();
+    screen.restoreFocus();
+    render();
+  };
+
+  closeActiveModal = closeModal;
+
+  const cancel = () => closeModal();
+  const submit = async () => {
+    const title = trimValue(input.getValue());
+    if (!title) return;
+
+    closeModal();
+
+    try {
+      await onSubmit(title);
+    } catch (err) {
+      showToast(`${label.trim()} failed: ${err.message}`, "error", 2.2);
+    }
+  };
+
+  submitButton.on("press", submit);
+  cancelButton.on("press", cancel);
+
+  modal.key(["escape"], cancel);
+  input.key(["escape"], () => {
+    input.cancel();
+  });
+  input.on("cancel", cancel);
+  input.on("submit", submit);
+
+  screen.render();
+  input.focus();
+  input.readInput();
+};
+
+const openConfirmModal = ({ label, message, accent = "red", onConfirm }) => {
+  if (isModalOpen()) return;
+
+  const modal = createModal({ label, borderColor: accent, width: "55%", height: 9 });
+  blessed.box({
+    parent: modal,
+    top: 1,
+    left: 2,
+    right: 2,
+    height: 1,
+    content: message,
+    style: { fg: "default", bg: "default" },
+  });
+
+  const confirmButton = createModalButton({
+    parent: modal,
+    top: 4,
+    left: 2,
+    width: 8,
+    content: " Yes ",
+    borderColor: accent,
+  });
+  const cancelButton = createModalButton({
+    parent: modal,
+    top: 4,
+    left: 12,
+    width: 10,
+    content: " No ",
+    borderColor: "gray",
+  });
+
+  activeModal = modal;
+  closeActiveModal = null;
+  screen.saveFocus();
+
+  const closeModal = () => {
+    if (!activeModal || activeModal !== modal) return;
+    activeModal = null;
+    closeActiveModal = null;
+    modal.destroy();
+    screen.restoreFocus();
+    render();
+  };
+
+  closeActiveModal = closeModal;
+
+  const cancel = () => closeModal();
+  const confirm = async () => {
+    closeModal();
+
+    try {
+      await onConfirm();
+    } catch (err) {
+      showToast(`Delete failed: ${err.message}`, "error", 2.2);
+    }
+  };
+
+  confirmButton.on("press", confirm);
+  cancelButton.on("press", cancel);
+
+  modal.key(["escape"], cancel);
+  modal.key(["left", "right", "tab", "S-tab"], (_, key) => {
+    if (screen.focused === confirmButton) {
+      cancelButton.focus();
+      screen.render();
+      return;
+    }
+
+    confirmButton.focus();
+    screen.render();
+  });
+
+  screen.render();
+  confirmButton.focus();
+};
 
 // ===== render =====
 const render = () => {
@@ -221,7 +459,7 @@ const render = () => {
     const lines = list
         .map((t, i) =>
           currentColumn === col && selectedIndex === i
-            ? `{black-fg}{cyan-bg} ❯ ${t.title} {/cyan-bg}{/black-fg}`
+            ? `{inverse} ❯ ${t.title} {/inverse}`
             : `   ${t.title}`
         )
         .join("\n");
@@ -239,6 +477,7 @@ const render = () => {
 
 // ===== navigation =====
 screen.key(["left", "right"], (ch, key) => {
+  if (isModalOpen()) return;
   const cols = ["todo", "doing", "done"];
   let idx = cols.indexOf(currentColumn);
 
@@ -251,6 +490,7 @@ screen.key(["left", "right"], (ch, key) => {
 });
 
 screen.key(["up", "down"], (ch, key) => {
+  if (isModalOpen()) return;
   const colTasks = getColumnTasks();
 
   if (key.name === "up" && selectedIndex > 0) selectedIndex--;
@@ -262,6 +502,7 @@ screen.key(["up", "down"], (ch, key) => {
 
 // ===== move status =====
 screen.key(["enter"], async () => {
+  if (isModalOpen()) return;
   const colTasks = getColumnTasks();
   const task = colTasks[selectedIndex];
   if (!task) return;
@@ -285,37 +526,24 @@ screen.key(["enter"], async () => {
 
 // ===== add =====
 screen.key(["a"], () => {
-  const prompt = blessed.prompt({
-    parent: screen,
-    border: "line",
+  if (isModalOpen()) return;
+
+  openTextModal({
     label: " Add Task ",
-    tags: true,
-    width: "50%",
-    height: "shrink",
-    top: "center",
-    left: "center",
-    style: {
-      border: { fg: "cyan" },
-    },
-  });
-
-  prompt.input("Task title:", "", async (_, value) => {
-    const title = trimValue(value);
-    if (!title) return;
-
-    try {
+    promptText: "Task title:",
+    accent: "cyan",
+    onSubmit: async (title) => {
       await addTask(title);
       tasks = await getTasks();
       render();
       showToast("Task added", "success");
-    } catch (err) {
-      showToast(`Add failed: ${err.message}`, "error", 2.2);
-    }
+    },
   });
 });
 
 // ===== delete =====
 screen.key(["d"], () => {
+  if (isModalOpen()) return;
   const colTasks = getColumnTasks();
   const task = colTasks[selectedIndex];
   if (!task) return;
@@ -323,69 +551,43 @@ screen.key(["d"], () => {
   const label = task.title.length > 40
     ? `${task.title.slice(0, 40)}...`
     : task.title;
-  screen.append(confirmBox);
-  confirmBox.ask(`Delete "${label}"?`, async (err, ok) => {
-    if (err) {
-      render();
-      showToast(`Delete failed: ${err.message}`, "error", 2.2);
-      return;
-    }
-
-    if (!ok) {
-      render();
-      showToast("Delete cancelled");
-      return;
-    }
-
-    try {
+  openConfirmModal({
+    label: " Confirm Delete ",
+    message: `Delete "${label}"?`,
+    onConfirm: async () => {
       await deleteTask(task.id);
       tasks = await getTasks();
       selectedIndex = 0;
       render();
       showToast("Task deleted", "success");
-    } catch (err) {
-      showToast(`Delete failed: ${err.message}`, "error", 2.2);
-    }
+    },
   });
 });
 
 // ===== edit =====
 screen.key(["e"], () => {
+  if (isModalOpen()) return;
   const colTasks = getColumnTasks();
   const task = colTasks[selectedIndex];
   if (!task) return;
 
-  const prompt = blessed.prompt({
-    parent: screen,
-    border: "line",
+  openTextModal({
     label: " Edit Task ",
-    tags: true,
-    width: "50%",
-    height: "shrink",
-    top: "center",
-    left: "center",
-    style: {
-      border: { fg: "yellow" },
-    },
-  });
-
-  prompt.input("Edit title:", task.title, async (_, value) => {
-    const title = trimValue(value);
-    if (!title) return;
-
-    try {
+    promptText: "Edit title:",
+    initialValue: task.title,
+    accent: "yellow",
+    onSubmit: async (title) => {
       await updateTitle(task.id, title);
       tasks = await getTasks();
       render();
       showToast("Task updated", "success");
-    } catch (err) {
-      showToast(`Edit failed: ${err.message}`, "error", 2.2);
-    }
+    },
   });
 });
 
 // ===== reorder =====
 screen.key(["k", "j"], async (ch, key) => {
+  if (isModalOpen()) return;
   let colTasks = getColumnTasks();
   const moveUp = key.name === "up" || key.name === "k";
   const moveDown = key.name === "down" || key.name === "j";
@@ -442,6 +644,11 @@ const shutdown = async (code = 0) => {
 };
 
 screen.key(["q", "C-c"], () => shutdown(0));
+screen.key(["escape"], () => {
+  if (closeActiveModal) {
+    closeActiveModal();
+  }
+});
 
 // ===== init =====
 (async () => {
