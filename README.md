@@ -1,25 +1,30 @@
 # Task Manager CLI
 
-Interactive Kanban-style task manager for terminal users.
+Interactive Kanban-style task manager for the terminal, backed by PostgreSQL.
+
+## Screenshot
+
+![Task Manager CLI](docs/screenshot.svg)
 
 ## Features
 
-- Three-column workflow: `To Do`, `In Progress`, `Done`
-- Keyboard-first navigation
-- Add, edit, delete, move, and reorder tasks
-- PostgreSQL-backed persistence
-- Terminal-theme-aware rendering for light and dark shells
-- Modal dialogs for add, edit, and delete flows
+- Three-column workflow: `TODO`, `DOING`, `DONE`
+- Keyboard-first task movement and selection
+- Add, edit, delete, archive, and undo task actions
+- Priority, due date, notes, and tags for each task
+- Search, filter, sort, and stats views
+- Automatic PostgreSQL schema bootstrapping on startup
+- Theme-friendly terminal rendering for light and dark shells
 
 ## Requirements
 
 - Node.js `18+`
 - PostgreSQL
-- An interactive terminal with TTY support
+- Interactive terminal with TTY support
 
 ## Install
 
-### Global install
+### Global
 
 ```bash
 npm install -g @saszorg/task-manager-cli
@@ -35,18 +40,18 @@ npm start
 
 ## Database Configuration
 
-Use one of these approaches:
+Supported connection methods:
 
 1. `DATABASE_URL`
-2. Standard PG env vars: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
+2. Standard PostgreSQL env vars: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
 
-Example:
+Example with `DATABASE_URL`:
 
 ```bash
 export DATABASE_URL="postgres://admin:admin@localhost:5432/tasks_db"
 ```
 
-Or:
+Example with individual env vars:
 
 ```bash
 export PGHOST=localhost
@@ -56,20 +61,29 @@ export PGPASSWORD=admin
 export PGDATABASE=tasks_db
 ```
 
-## Expected Schema
+## Schema
 
-The app expects a `tasks` table with these core columns:
+The app creates or upgrades the `tasks` table automatically. Current shape:
 
 ```sql
 CREATE TABLE IF NOT EXISTS tasks (
   id UUID PRIMARY KEY,
   title TEXT NOT NULL,
-  status TEXT NOT NULL,
-  position INTEGER NOT NULL
+  status TEXT NOT NULL DEFAULT 'todo',
+  position INTEGER NOT NULL DEFAULT 1,
+  description TEXT NOT NULL DEFAULT '',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  due_date DATE,
+  tags TEXT[] NOT NULL DEFAULT '{}'::text[],
+  archived BOOLEAN NOT NULL DEFAULT FALSE,
+  archived_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-## CLI Options
+## CLI
 
 ```bash
 task-manager-cli --help
@@ -80,12 +94,45 @@ task-manager-cli --version
 
 - `←/→`: switch column
 - `↑/↓`: select task
-- `j/k`: reorder task
+- `j/k`: reorder task in manual sort mode
 - `Enter`: move task to next status
 - `a`: add task
-- `e`: edit task
+- `e`: edit task title
+- `i`: open task details
+- `/`: search tasks
+- `f`: cycle filters
+- `o`: cycle sort modes
+- `x`: archive or unarchive current task
+- `u`: undo last action
+- `s`: open stats modal
 - `d`: delete task
 - `q` or `Ctrl+C`: quit
+
+## Task Details
+
+The details modal supports:
+
+- Title
+- Notes
+- Priority
+- Tags
+- Due date
+- Archive state
+
+## Filters
+
+- Active
+- High priority
+- Overdue
+- Due soon
+- Archived
+
+## Sort Modes
+
+- Manual
+- Priority
+- Due date
+- Created time
 
 ## Development
 
@@ -93,10 +140,10 @@ task-manager-cli --version
 npm test
 ```
 
-This currently runs syntax checks for the CLI entry points.
+Current automated verification is syntax checking for the CLI entry points.
 
 ## Notes
 
-- The app requires a real TTY and will exit early in non-interactive environments.
-- Task ordering is preserved per column using the `position` field.
-- Current persistence is intentionally simple so the TUI remains fast and predictable.
+- The app exits early outside a real TTY.
+- Manual reordering is only available in `Active` filter mode with no search query and `Manual` sort selected.
+- Archived tasks stay in the database and can be restored later.

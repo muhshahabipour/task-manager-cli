@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.4 - 2026-05-05
+
+- Added task metadata support: `priority`, `due_date`, `tags`, `description`, archival state, and timestamps.
+- Added automatic schema bootstrapping for new and existing PostgreSQL databases.
+- Added search, filter modes, sort modes, stats modal, task details modal, and undo support.
+- Added archived-task flows and overdue/due-soon task handling.
+- Added status pie chart to the stats modal.
+- Improved column labels for more stable rendering across terminals.
+- Added README screenshot and refreshed project documentation.
+
 ## 1.1.3 - 2026-05-05
 
 - Reworked modal flows for add, edit, and delete into custom Blessed dialogs.
